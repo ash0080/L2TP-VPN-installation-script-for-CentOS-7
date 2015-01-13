@@ -4,6 +4,7 @@ L2TP-VPN-installation-script-for-CentOS-7
 Test in Azure VM 
 
 How to use:
+
 1. Create a new VM [CENTOS-BASED] -> [Openlogic 7.0]
 
 2. Enable endpoints UDP500, UDP1701, UDP4500
