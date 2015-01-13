@@ -140,7 +140,8 @@ mknod /dev/random c 1 9
 
 #安装依赖的组件
 yum -y update
-yum install -y openswan ppp xl2tpd wget
+yum localinstall http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm -y
+yum install -y firewalld openswan ppp xl2tpd wget
 
 rm -f /etc/ipsec.conf
 #创建ipsec.conf配置文件
@@ -319,6 +320,7 @@ cat >/usr/lib/firewalld/services/l2tpd.xml<<EOF
 </service>
 EOF
 
+service firewalld start
 firewall-cmd --permanent --add-service=l2tpd
 firewall-cmd --permanent --add-service=ipsec
 firewall-cmd --permanent --add-masquerade
@@ -329,8 +331,8 @@ firewall-cmd --reload
 #service iptables save
 
 #允许开机启动
-systemctl enable ipsec xl2tpd
-systemctl restart ipsec xl2tpd
+systemctl enable firewalld ipsec xl2tpd
+systemctl restart firewalld ipsec xl2tpd
 clear
 
 #测试ipsec
