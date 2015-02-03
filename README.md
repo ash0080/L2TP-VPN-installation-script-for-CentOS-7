@@ -1,7 +1,6 @@
-L2TP-VPN-installation-script-for-CentOS-7
+Deploy L2TP VPN in Azure CentOS 7 VM
 =========================================
 
-Test in Azure VM 
 
 How to use:
 
