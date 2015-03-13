@@ -14,3 +14,5 @@ How to use:
 6. Run: sudo chmod +x l2tp-ipsec-install-script-for-centos7.sh
 7. Run: sudo ./l2tp-ipsec-install-script-for-centos7.sh
 8. Restart the VM from Azure Portal
+9. Get the new public ip at Azure portal
+
