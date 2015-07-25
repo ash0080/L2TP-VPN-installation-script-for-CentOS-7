@@ -7,6 +7,10 @@
 # Website: http://www.stunnel.info                 #
 #                                                  #
 ####################################################
+#安装依赖的组件
+yum -y update
+yum localinstall http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm -y
+yum install -y firewalld openswan ppp xl2tpd wget
 
 #检测是否是root用户
 if [[ $(id -u) != "0" ]]; then
@@ -26,15 +30,15 @@ printf "
 ####################################################
 #                                                  #
 # This is a L2TP VPN installation for CentOS 7     #
-# Version: 1.1.0 20140803                          #
-# Author: Travis Lee                               #
-# Website: http://www.stunnel.info                 #
+# Version: 1.2.0 20150725                          #
+# Author: Elvis Cheng                              #
+# Website: http://ash0080.gitcafe.io               #
 #                                                  #
 ####################################################
 "
 
 #获取服务器IP
-serverip=$(hostname -i)
+serverip=`hostname -i`
 printf "\e[33m$serverip\e[0m is the server IP?"
 printf "If \e[33m$serverip\e[0m is \e[33mcorrect\e[0m, press enter directly."
 printf "If \e[33m$serverip\e[0m is \e[33mincorrect\e[0m, please input your server IP."
@@ -45,7 +49,7 @@ if [[ -n "$serveriptmp" ]]; then
 fi
 
 #获取网卡接口名称
-ethlist=$(ifconfig | grep ": flags" | cut -d ":" -f1)
+ethlist=`ifconfig | grep ": flags" | cut -d ":" -f1`
 eth=$(printf "$ethlist\n" | head -n 1)
 if [[ $(printf "$ethlist\n" | wc -l) -gt 2 ]]; then
     echo ======================================
@@ -138,35 +142,16 @@ char=$(get_char)
 clear
 mknod /dev/random c 1 9
 
-#安装依赖的组件
-yum -y update
-yum localinstall http://dl.fedoraproject.org/pub/epel/7/x86_64/e/epel-release-7-5.noarch.rpm -y
-yum install -y firewalld openswan ppp xl2tpd wget
-
 rm -f /etc/ipsec.conf
+touch /etc/ipsec.conf
 #创建ipsec.conf配置文件
 cat >>/etc/ipsec.conf<<EOF
-# /etc/ipsec.conf - Libreswan IPsec configuration file
-
-# This file:  /etc/ipsec.conf
-#
-# Enable when using this configuration file with openswan instead of libreswan
-#version 2
-#
-# Manual:     ipsec.conf.5
-
-# basic configuration
+version 2.0
 config setup
-    # NAT-TRAVERSAL support, see README.NAT-Traversal
     nat_traversal=yes
-    # exclude networks used on server side by adding %v4:!a.b.c.0/24
     virtual_private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12
-    # OE is now off by default. Uncomment and change to on, to enable.
     oe=off
-    # which IPsec stack to use. auto will try netkey, then klips then mast
     protostack=netkey
-    force_keepalive=yes
-    keep_alive=1800
 
 conn L2TP-PSK-NAT
     rightsubnet=vhost:%priv
@@ -181,27 +166,15 @@ conn L2TP-PSK-noNAT
     ikelifetime=8h
     keylife=1h
     type=transport
-    left=$serverip
-    leftid=$serverip
+    left=$serveripaddress
     leftprotoport=17/1701
     right=%any
     rightprotoport=17/%any
-    dpddelay=40
-    dpdtimeout=130
-    dpdaction=clear
-# For example connections, see your distribution's documentation directory,
-# or the documentation which could be located at
-#  /usr/share/docs/libreswan-3.*/ or look at https://www.libreswan.org/
-#
-# There is also a lot of information in the manual page, "man ipsec.conf"
-
-# You may put your configuration (.conf) file in the "/etc/ipsec.d/" directory
-# by uncommenting this line
-#include /etc/ipsec.d/*.conf
 EOF
 
 #设置预共享密钥配置文件
 rm -f /etc/ipsec.secrets
+touch /etc/ipsec.secrets
 cat >>/etc/ipsec.secrets<<EOF
 #include /etc/ipsec.d/*.secrets
 $serverip %any: PSK "$mypsk"
@@ -210,34 +183,16 @@ EOF
 #创建xl2tpd.conf配置文件
 mkdir -p /etc/xl2tpd
 rm -f /etc/xl2tpd/xl2tpd.conf
+touch /etc/xl2tpd/xl2tpd.conf
 cat >>/etc/xl2tpd/xl2tpd.conf<<EOF
-;
-; This is a minimal sample xl2tpd configuration file for use
-; with L2TP over IPsec.
-;
-; The idea is to provide an L2TP daemon to which remote Windows L2TP/IPsec
-; clients connect. In this example, the internal (protected) network
-; is 192.168.1.0/24.  A special IP range within this network is reserved
-; for the remote clients: 192.168.1.128/25
-; (i.e. 192.168.1.128 ... 192.168.1.254)
-;
-; The listen-addr parameter can be used if you want to bind the L2TP daemon
-; to a specific IP address instead of to all interfaces. For instance,
-; you could bind it to the interface of the internal LAN (e.g. 192.168.1.98
-; in the example below). Yet another IP address (local ip, e.g. 192.168.1.99)
-; will be used by xl2tpd as its address on pppX interfaces.
 [global]
-; ipsec saref = yes
-listen-addr = $serverip
-auth file = /etc/ppp/chap-secrets
-port = 1701
+ipsec saref = yes
 [lns default]
 ip range = $iprange.10-$iprange.254
 local ip = $iprange.1
 refuse chap = yes
 refuse pap = yes
 require authentication = yes
-name = L2TPVPN
 ppp debug = yes
 pppoptfile = /etc/ppp/options.xl2tpd
 length bit = yes
@@ -246,12 +201,8 @@ EOF
 #创建options.xl2tpd配置文件
 mkdir -p /etc/ppp
 rm -f /etc/ppp/options.xl2tpd
+touch /etc/ppp/options.xl2tpd
 cat >>/etc/ppp/options.xl2tpd<<EOF
-#require-pap
-#require-chap
-#require-mschap
-ipcp-accept-local
-ipcp-accept-remote
 require-mschap-v2
 ms-dns 8.8.8.8
 ms-dns 8.8.4.4
@@ -262,24 +213,15 @@ lock
 hide-password
 modem
 debug
-name l2tpd
+name $VPN_SERVICENAME
 proxyarp
 lcp-echo-interval 30
 lcp-echo-failure 4
-mtu 1400
-noccp
-connect-delay 5000
-# To allow authentication against a Windows domain EXAMPLE, and require the
-# user to be in a group "VPN Users". Requires the samba-winbind package
-# require-mschap-v2
-# plugin winbind.so
-# ntlm_auth-helper '/usr/bin/ntlm_auth --helper-protocol=ntlm-server-1 --require-membership-of="EXAMPLE\VPN Users"'
-# You need to join the domain on the server, for example using samba:
-# http://rootmanager.com/ubuntu-ipsec-l2tp-windows-domain-auth/setting-up-openswan-xl2tpd-with-native-windows-clients-lucid.html
 EOF
 
 #创建chap-secrets配置文件，即用户列表及密码
 rm -f /etc/ppp/chap-secrets
+touch /etc/ppp/chap-secrets
 cat >>/etc/ppp/chap-secrets<<EOF
 # Secrets for authentication using CHAP
 # client     server     secret               IP addresses
@@ -287,26 +229,14 @@ $username          l2tpd     $password               *
 EOF
 
 #修改系统配置，允许IP转发
-sysctl -w net.ipv4.ip_forward=1
-sysctl -w net.ipv4.conf.all.rp_filter=0
-sysctl -w net.ipv4.conf.default.rp_filter=0
-sysctl -w net.ipv4.conf.$eth.rp_filter=0
-sysctl -w net.ipv4.conf.all.send_redirects=0
-sysctl -w net.ipv4.conf.default.send_redirects=0
-sysctl -w net.ipv4.conf.all.accept_redirects=0
-sysctl -w net.ipv4.conf.default.accept_redirects=0
-
-cat >>/etc/sysctl.conf<<EOF
-
-net.ipv4.ip_forward = 1
-net.ipv4.conf.all.rp_filter = 0
-net.ipv4.conf.default.rp_filter = 0
-net.ipv4.conf.$eth.rp_filter = 0
-net.ipv4.conf.all.send_redirects = 0
-net.ipv4.conf.default.send_redirects = 0
-net.ipv4.conf.all.accept_redirects = 0
-net.ipv4.conf.default.accept_redirects = 0
-EOF
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
+sysctl -p
+for each in /proc/sys/net/ipv4/conf/*
+do
+echo 0 > $each/accept_redirects
+echo 0 > $each/send_redirects
+done
 
 #允许防火墙端口
 cat >/usr/lib/firewalld/services/l2tpd.xml<<EOF
@@ -350,10 +280,8 @@ printf "
 if there are no [FAILED] above, then you can
 connect to your L2TP VPN Server with the default
 user/password below:
-
 ServerIP: $serverip
 username: $username
 password: $password
 PSK: $mypsk
-
 "
